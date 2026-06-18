@@ -24,6 +24,8 @@ pub enum Commands {
     Stats(StatsArgs),
     /// Check local setup and recommendations.
     Doctor(DoctorArgs),
+    /// One-command setup: install ContextX locally, update PATH, and configure clients.
+    Setup(SetupArgs),
     /// Auto-configure supported local clients.
     Install(InstallArgs),
     /// Print an MCP client config snippet without editing files.
@@ -137,6 +139,18 @@ pub struct InstallArgs {
     /// Install only one client: claude-desktop, cursor, vscode, or zed.
     #[arg(long)]
     pub client: Option<String>,
+    #[arg(long)]
+    pub dry_run: bool,
+}
+
+#[derive(Debug, Clone, Args)]
+pub struct SetupArgs {
+    #[arg(long)]
+    pub all: bool,
+    /// Setup only one client: claude-desktop, cursor, vscode, or zed.
+    #[arg(long)]
+    pub client: Option<String>,
+    /// Show setup actions without writing files.
     #[arg(long)]
     pub dry_run: bool,
 }

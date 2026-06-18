@@ -1,5 +1,5 @@
-use crate::cli::{DoctorArgs, InstallArgs};
-use crate::install;
+use crate::cli::{DoctorArgs, SetupArgs};
+use crate::setup;
 use anyhow::Result;
 use serde_json::json;
 use std::env;
@@ -57,14 +57,19 @@ pub async fn run(args: DoctorArgs) -> Result<()> {
     check_config("VS Code user settings", vscode_settings());
     println!();
     println!("Recommended next steps:");
-    println!("  contextx doctor --fix --dry-run");
+    if command_path("contextx").is_ok() {
+        println!("  contextx setup --all --dry-run");
+        println!("  contextx setup --all");
+    } else {
+        println!("  cargo run -- setup --all --dry-run");
+        println!("  cargo run -- setup --all");
+    }
     println!("  contextx daemon");
-    println!("  contextx mcp");
     println!("  contextx tui");
     if args.fix {
         println!();
         println!("Applying safe setup fixes:");
-        install::run(InstallArgs {
+        setup::run(SetupArgs {
             all: true,
             client: None,
             dry_run: args.dry_run,

@@ -12,7 +12,43 @@ Usage you can see  +  Tokens you can save  =  ContextX Intelligence
 
 No Docker. No telemetry. No cloud server. Memory-only by default.
 
-## Install
+## Fast Setup
+
+Fresh setup from source:
+
+```bash
+git clone https://github.com/SanthaKumar-K-2004/ContextX-Intelligence.git
+cd ContextX-Intelligence
+cargo run -- setup --all
+contextx daemon
+```
+
+That one setup command installs the `contextx` binary into `~/.local/bin`, adds it to PATH when needed, backs up existing config files, and configures supported MCP clients.
+
+Setup one tool only:
+
+```bash
+cargo run -- setup --client claude-desktop
+cargo run -- setup --client cursor
+cargo run -- setup --client vscode
+cargo run -- setup --client zed
+```
+
+Preview first without changing files:
+
+```bash
+cargo run -- setup --all --dry-run
+```
+
+After setup, use normal commands:
+
+```bash
+contextx daemon
+contextx tui
+contextx stats --watch
+```
+
+## Install Options
 
 ### Option 1: Install With Cargo
 
@@ -20,6 +56,7 @@ Use this if Rust/Cargo is installed:
 
 ```bash
 cargo install --git https://github.com/SanthaKumar-K-2004/ContextX-Intelligence.git
+contextx setup --all
 ```
 
 Then verify:
@@ -33,15 +70,7 @@ contextx doctor
 ```bash
 git clone https://github.com/SanthaKumar-K-2004/ContextX-Intelligence.git
 cd ContextX-Intelligence
-cargo build --release
-```
-
-Make the command available on Linux/macOS:
-
-```bash
-mkdir -p ~/.local/bin
-cp target/release/contextx ~/.local/bin/contextx
-export PATH="$HOME/.local/bin:$PATH"
+cargo run -- setup --all
 ```
 
 Run with Cargo during development:
@@ -71,7 +100,7 @@ ContextX is a Rust system tool, so the best packaging order is:
 
 Recommended product strategy: keep the core as one Rust binary and use npm/PyPI only as installer wrappers. That keeps ContextX fast, low-RAM, and easy to ship.
 
-## Quick Start
+## Quick Start After Setup
 
 1. Check your machine:
 
@@ -82,13 +111,13 @@ contextx doctor
 2. Preview setup changes:
 
 ```bash
-contextx doctor --fix --dry-run
+contextx setup --all --dry-run
 ```
 
 3. Apply safe setup:
 
 ```bash
-contextx doctor --fix
+contextx setup --all
 ```
 
 4. Start the shared local engine:
@@ -125,10 +154,10 @@ Then connect tools in one of three ways:
 
 ### Claude Desktop
 
-Install MCP config:
+One-command setup:
 
 ```bash
-contextx install --client claude-desktop
+contextx setup --client claude-desktop
 ```
 
 Verify:
@@ -147,10 +176,10 @@ Restart Claude Desktop after install. The MCP server name is `contextx`.
 
 ### Cursor
 
-Install MCP config:
+One-command setup:
 
 ```bash
-contextx install --client cursor
+contextx setup --client cursor
 ```
 
 Verify:
@@ -167,10 +196,10 @@ contextx daemon
 
 ### VS Code / Cline / Continue
 
-Install MCP config:
+One-command setup:
 
 ```bash
-contextx install --client vscode
+contextx setup --client vscode
 ```
 
 Verify:
@@ -189,10 +218,10 @@ VS Code-style config uses a `servers` section instead of `mcpServers`.
 
 ### Zed
 
-Install MCP config:
+One-command setup:
 
 ```bash
-contextx install --client zed
+contextx setup --client zed
 ```
 
 Verify:
@@ -268,7 +297,7 @@ Run these after setup:
 
 ```bash
 contextx doctor
-contextx install --all --dry-run
+contextx setup --all --dry-run
 contextx print-config --client claude-desktop
 contextx verify-client --client claude-desktop
 contextx stats
@@ -308,6 +337,7 @@ Expected response includes:
 | OpenAI/Anthropic-style proxy routes | Working locally |
 | TUI dashboard | Working |
 | Stats watch | Working |
+| One-command setup | Working |
 | Auto config dry-run | Working |
 | Safe config backup before edits | Working |
 | Context compression | Working |
@@ -396,6 +426,9 @@ ContextX can only measure and save traffic it can see through MCP, proxy, wrappe
 | `contextx wrap <command>` | Run terminal AI tools through ContextX tracking |
 | `contextx tui` | Live terminal dashboard |
 | `contextx stats` | Print current memory-only stats |
+| `contextx setup` | Install ContextX locally, update PATH, configure clients, and verify |
+| `contextx setup --all` | Setup all supported local clients |
+| `contextx setup --client <client>` | Setup one supported client |
 | `contextx doctor` | Check local setup |
 | `contextx doctor --json` | Print machine-readable setup status |
 | `contextx doctor --fix` | Apply safe auto-configuration |

@@ -4,6 +4,7 @@ mod doctor;
 mod install;
 mod mcp;
 mod proxy;
+mod setup;
 mod tui;
 mod wrap;
 
@@ -27,6 +28,7 @@ async fn main() -> Result<()> {
         Commands::Tui(args) => tui::run(args, engine).await,
         Commands::Stats(args) => tui::print_stats(args, engine).await,
         Commands::Doctor(args) => doctor::run(args).await,
+        Commands::Setup(args) => setup::run(args).await,
         Commands::Install(args) => install::run(args).await,
         Commands::PrintConfig(args) => install::print_config(args).await,
         Commands::VerifyClient(args) => install::verify_client(args).await,
