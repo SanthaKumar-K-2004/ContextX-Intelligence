@@ -12,9 +12,11 @@ Usage you can see  +  Tokens you can save  =  ContextX Intelligence
 
 No Docker. No telemetry. No cloud server. Memory-only by default.
 
-## Quick Install From Source
+## Install
 
-Best current install path:
+### Option 1: Install With Cargo
+
+Use this if Rust/Cargo is installed:
 
 ```bash
 cargo install --git https://github.com/SanthaKumar-K-2004/ContextX-Intelligence.git
@@ -26,7 +28,7 @@ Then verify:
 contextx doctor
 ```
 
-Manual source build:
+### Option 2: Build From Source
 
 ```bash
 git clone https://github.com/SanthaKumar-K-2004/ContextX-Intelligence.git
@@ -54,7 +56,7 @@ Run the built binary:
 ./target/release/contextx doctor
 ```
 
-## Recommended Distribution Plan
+### Future One-Line Installers
 
 ContextX is a Rust system tool, so the best packaging order is:
 
@@ -69,69 +71,145 @@ ContextX is a Rust system tool, so the best packaging order is:
 
 Recommended product strategy: keep the core as one Rust binary and use npm/PyPI only as installer wrappers. That keeps ContextX fast, low-RAM, and easy to ship.
 
-## One-Minute Setup
+## Quick Start
 
-Preview setup first:
+1. Check your machine:
+
+```bash
+contextx doctor
+```
+
+2. Preview setup changes:
 
 ```bash
 contextx doctor --fix --dry-run
 ```
 
-Apply safe setup:
+3. Apply safe setup:
 
 ```bash
 contextx doctor --fix
 ```
 
-Start the shared local engine:
+4. Start the shared local engine:
 
 ```bash
 contextx daemon
 ```
 
-Open the dashboard in another terminal:
+5. Open the dashboard in another terminal:
 
 ```bash
 contextx tui
 ```
 
-## Command Cheat Sheet By Tool
+## How ContextX Runs
 
-### Claude Desktop
+Most users run this while using AI tools:
 
 ```bash
-contextx install --client claude-desktop
-contextx verify-client --client claude-desktop
 contextx daemon
 ```
 
-Restart Claude Desktop after install.
+The daemon is the shared local brain. It keeps the in-memory CCR cache, usage counters, compression events, and local API alive.
+
+Then connect tools in one of three ways:
+
+| Connection | Best For | Command |
+| --- | --- | --- |
+| MCP | Claude Desktop, Cursor, Cline, Continue, Zed | `contextx mcp` via client config |
+| Proxy | SDK apps, LangChain, Vercel AI SDK, custom apps | `contextx proxy --port 8787` |
+| Wrapper | Claude Code, Codex CLI, Aider | `contextx wrap <command>` |
+
+## Setup By Tool
+
+### Claude Desktop
+
+Install MCP config:
+
+```bash
+contextx install --client claude-desktop
+```
+
+Verify:
+
+```bash
+contextx verify-client --client claude-desktop
+```
+
+Run ContextX:
+
+```bash
+contextx daemon
+```
+
+Restart Claude Desktop after install. The MCP server name is `contextx`.
 
 ### Cursor
 
+Install MCP config:
+
 ```bash
 contextx install --client cursor
+```
+
+Verify:
+
+```bash
 contextx verify-client --client cursor
+```
+
+Run ContextX:
+
+```bash
 contextx daemon
 ```
 
 ### VS Code / Cline / Continue
 
+Install MCP config:
+
 ```bash
 contextx install --client vscode
+```
+
+Verify:
+
+```bash
 contextx verify-client --client vscode
+```
+
+Run ContextX:
+
+```bash
 contextx daemon
 ```
 
+VS Code-style config uses a `servers` section instead of `mcpServers`.
+
 ### Zed
+
+Install MCP config:
 
 ```bash
 contextx install --client zed
+```
+
+Verify:
+
+```bash
 contextx verify-client --client zed
+```
+
+Run ContextX:
+
+```bash
 contextx daemon
 ```
 
 ### Claude Code
+
+Run Claude through the safe wrapper:
 
 ```bash
 contextx daemon
@@ -140,12 +218,16 @@ contextx wrap claude
 
 ### Codex CLI
 
+Run Codex through the safe wrapper:
+
 ```bash
 contextx daemon
 contextx wrap codex
 ```
 
 ### Aider
+
+Run Aider through the safe wrapper:
 
 ```bash
 contextx daemon
@@ -154,8 +236,15 @@ contextx wrap aider
 
 ### OpenAI SDK / LangChain / Vercel AI SDK
 
+Start the proxy:
+
 ```bash
 contextx proxy --port 8787
+```
+
+Point your app to ContextX:
+
+```bash
 export OPENAI_BASE_URL=http://127.0.0.1:8787/v1
 ```
 
@@ -172,6 +261,61 @@ contextx tui
 contextx stats
 contextx stats --watch
 ```
+
+## Verify Everything Works
+
+Run these after setup:
+
+```bash
+contextx doctor
+contextx install --all --dry-run
+contextx print-config --client claude-desktop
+contextx verify-client --client claude-desktop
+contextx stats
+```
+
+For a local API smoke test:
+
+```bash
+contextx daemon
+```
+
+In another terminal:
+
+```bash
+curl -s http://127.0.0.1:8787/health
+```
+
+Expected response includes:
+
+```json
+{
+  "ok": true,
+  "service": "contextx",
+  "privacy": "memory-only"
+}
+```
+
+## What Works Today
+
+| Feature | Status |
+| --- | --- |
+| Single Rust CLI binary | Working |
+| MCP server | Working |
+| MCP tools | Working |
+| Local daemon | Working |
+| Local API | Working |
+| OpenAI/Anthropic-style proxy routes | Working locally |
+| TUI dashboard | Working |
+| Stats watch | Working |
+| Auto config dry-run | Working |
+| Safe config backup before edits | Working |
+| Context compression | Working |
+| CCR original retrieval | Working |
+| Short-prompt no-overhead guard | Working |
+| Claude account quota exact tracking | Provider-dependent |
+| Deep Claude Code request interception | Future |
+| npm/PyPI/Homebrew packages | Future wrappers |
 
 ## What ContextX Shows
 
@@ -260,65 +404,9 @@ ContextX can only measure and save traffic it can see through MCP, proxy, wrappe
 | `contextx install --client <client>` | Configure one supported client |
 | `contextx install --all` | Configure all supported client configs |
 
-## Supported Tools And Setup
+## Manual MCP Config
 
-### Claude Desktop
-
-Preview config:
-
-```bash
-contextx print-config --client claude-desktop
-```
-
-Install:
-
-```bash
-contextx install --client claude-desktop
-```
-
-Verify:
-
-```bash
-contextx verify-client --client claude-desktop
-```
-
-Run:
-
-```bash
-contextx daemon
-```
-
-Then restart Claude Desktop and use the MCP tools.
-
-### Cursor
-
-```bash
-contextx install --client cursor
-contextx verify-client --client cursor
-contextx daemon
-```
-
-Cursor will see the MCP server as `contextx`.
-
-### VS Code
-
-```bash
-contextx install --client vscode
-contextx verify-client --client vscode
-contextx daemon
-```
-
-VS Code-style config uses a `servers` section instead of `mcpServers`.
-
-### Zed
-
-```bash
-contextx install --client zed
-contextx verify-client --client zed
-contextx daemon
-```
-
-### Any MCP Client
+Use this only if `contextx install --client ...` does not support your client yet.
 
 Use this config shape:
 
@@ -346,92 +434,6 @@ For VS Code-style clients:
 }
 ```
 
-### OpenAI-Compatible SDKs
-
-Start proxy:
-
-```bash
-contextx proxy --port 8787
-```
-
-Point your app to ContextX:
-
-```bash
-export OPENAI_BASE_URL=http://127.0.0.1:8787/v1
-```
-
-Supported local proxy paths:
-
-```text
-POST /v1/chat/completions
-POST /v1/messages
-POST /v1/responses
-```
-
-### LangChain / Vercel AI SDK / Custom Apps
-
-Use the same proxy URL:
-
-```bash
-http://127.0.0.1:8787/v1
-```
-
-Your app sends traffic to ContextX, ContextX compresses visible messages, forwards upstream, and records usage when response fields are available.
-
-### Claude Code / Codex CLI / Aider
-
-Run through wrapper:
-
-```bash
-contextx wrap codex
-contextx wrap aider
-contextx wrap claude
-```
-
-Current wrapper behavior is intentionally safe: it starts the command and tracks the session. Deeper request interception is a future layer.
-
-## Common Workflows
-
-### Live Dashboard
-
-Terminal 1:
-
-```bash
-contextx daemon
-```
-
-Terminal 2:
-
-```bash
-contextx tui
-```
-
-### Watch JSON Stats
-
-```bash
-contextx stats --watch
-```
-
-### Print Setup Status As JSON
-
-```bash
-contextx doctor --json
-```
-
-### Dry-Run All Setup Changes
-
-```bash
-contextx doctor --fix --dry-run
-```
-
-### Install All Supported Clients
-
-```bash
-contextx install --all
-```
-
-ContextX creates backups before editing existing config files.
-
 ## Local API
 
 When `contextx daemon` or `contextx proxy` is running:
@@ -443,6 +445,14 @@ GET  /v1/contextx/stats
 POST /v1/contextx/compress
 POST /v1/contextx/retrieve
 POST /v1/contextx/learn
+```
+
+Proxy-compatible routes:
+
+```text
+POST /v1/chat/completions
+POST /v1/messages
+POST /v1/responses
 ```
 
 Example compress request:
