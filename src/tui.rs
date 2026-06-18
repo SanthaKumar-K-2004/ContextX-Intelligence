@@ -38,10 +38,10 @@ async fn load_snapshot(
 ) -> StatsSnapshot {
     if !local {
         let url = format!("{}/v1/contextx/stats", daemon_url.trim_end_matches('/'));
-        if let Ok(response) = client.get(url).send().await {
-            if let Ok(snapshot) = response.json::<StatsSnapshot>().await {
-                return snapshot;
-            }
+        if let Ok(response) = client.get(url).send().await
+            && let Ok(snapshot) = response.json::<StatsSnapshot>().await
+        {
+            return snapshot;
         }
     }
     engine.lock().await.stats()
