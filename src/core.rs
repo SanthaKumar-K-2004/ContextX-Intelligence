@@ -642,4 +642,109 @@ mod tests {
         assert_eq!(response.algorithm_used, "json");
         assert_eq!(response.ccr_keys.len(), 1);
     }
+
+    #[test]
+    fn auto_mode_does_not_expand_short_context() {
+        let mut engine = ContextXEngine::default();
+        let text = "short direct prompt; do not add overhead".to_string();
+        let response = engine.compress(test_request(Value::String(text.clone())));
+
+        assert_eq!(response.algorithm_used, "passthrough");
+        assert!(response.ccr_keys.is_empty());
+        assert_eq!(response.original_tokens, response.compressed_tokens);
+        assert_eq!(response.compressed_messages[0].content, Value::String(text));
+    }
+
+    #[test]
+    fn code_compression_keeps_power_lines_and_retrieves_full_source() {
+        let mut engine = ContextXEngine::default();
+        let mut lines = vec![
+            "use std::collections::HashMap;".to_string(),
+            "pub struct UsageTracker { total: usize }".to_string(),
+            "fn compress_context(input: &str) -> String {".to_string(),
+            "    // TODO: preserve important implementation notes".to_string(),
+        ];
+        lines.extend((0..120).map(|i| format!("    let filler_{i} = {i};")));
+        lines.push("    panic!(\"critical failure marker\");".to_string());
+        lines.push("}".to_string());
+        let source = lines.join("\n");
+
+        let response = engine.compress(test_request(Value::String(source.clone())));
+        let compressed = response.compressed_messages[0].content.as_str().unwrap();
+
+        assert_eq!(response.algorithm_used, "code");
+        assert!(response.savings_pct > 50.0);
+        assert!(compressed.contains("use std::collections::HashMap;"));
+        assert!(compressed.contains("pub struct UsageTracker"));
+        assert!(compressed.contains("fn compress_context"));
+        assert!(compressed.contains("TODO"));
+        assert!(compressed.contains("panic!"));
+
+        let retrieved = engine.retrieve(&response.ccr_keys);
+        assert_eq!(retrieved.contents.len(), 1);
+        assert_eq!(retrieved.contents[0].content, source);
+    }
+
+    #[test]
+    fn before_after_suite_saves_tokens_while_preserving_retrieval() {
+        let prose = Value::String(
+            (0..160)
+                .map(|i| {
+                    format!("project context line {i}: usage monitor compression intelligence")
+                })
+                .collect::<Vec<_>>()
+                .join("\n"),
+        );
+        let json_content = json!(
+            (0..80)
+                .map(|i| json!({"id": i, "title": format!("task-{i}"), "status": "open", "owner": "alpha-x"}))
+                .collect::<Vec<_>>()
+        );
+        let code = Value::String(
+            [
+                "import os",
+                "class ContextX:",
+                "def compress(self, messages):",
+                "    return messages",
+            ]
+            .into_iter()
+            .chain((0..100).map(|_| "value = 'repeated detail for local context only'"))
+            .collect::<Vec<_>>()
+            .join("\n"),
+        );
+
+        let cases = [prose, json_content, code];
+        for case in cases {
+            let mut engine = ContextXEngine::default();
+            let response = engine.compress(test_request(case));
+
+            assert!(
+                response.compressed_tokens < response.original_tokens,
+                "expected token reduction, got original={} compressed={} algorithm={}",
+                response.original_tokens,
+                response.compressed_tokens,
+                response.algorithm_used
+            );
+            assert!(!response.ccr_keys.is_empty());
+            assert!(response.savings_pct > 20.0);
+
+            let retrieved = engine.retrieve(&response.ccr_keys);
+            assert_eq!(retrieved.contents.len(), response.ccr_keys.len());
+        }
+    }
+
+    fn test_request(content: Value) -> CompressRequest {
+        CompressRequest {
+            messages: vec![Message {
+                role: "user".to_string(),
+                content,
+            }],
+            model: "test".to_string(),
+            provider: "test".to_string(),
+            budget_tokens: None,
+            algorithm: "auto".to_string(),
+            agent: "test".to_string(),
+            project_path: None,
+        }
+    }
 }
