@@ -1,4 +1,4 @@
-use chrono::{DateTime, Duration, Utc};
+use chrono::{DateTime, Duration, Local, TimeZone, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
@@ -60,7 +60,9 @@ pub struct RetrievedContent {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StatsSnapshot {
     pub session: WindowStats,
+    pub daily: WindowStats,
     pub weekly: WindowStats,
+    pub usage: UsageSummary,
     pub by_agent: HashMap<String, AgentStats>,
     pub by_provider: HashMap<String, AgentStats>,
     pub cache: CacheStats,
@@ -73,10 +75,23 @@ pub struct WindowStats {
     pub original_tokens: usize,
     pub compressed_tokens: usize,
     pub output_tokens: usize,
+    pub used_tokens: usize,
+    pub saved_tokens: usize,
     pub requests: usize,
     pub savings_pct: f64,
     pub burn_tokens_per_minute: f64,
     pub estimated_minutes_left: Option<f64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UsageSummary {
+    pub used_tokens: usize,
+    pub saved_tokens: usize,
+    pub daily_quota_tokens: Option<usize>,
+    pub daily_remaining_tokens: Option<usize>,
+    pub quota_source: String,
+    pub next_daily_reset_at: DateTime<Utc>,
+    pub session_reset_at: DateTime<Utc>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -241,6 +256,18 @@ impl ContextXEngine {
             .filter(|event| event.ts >= now - Duration::days(7))
             .cloned()
             .collect::<Vec<_>>();
+        let daily_start = Local::now()
+            .date_naive()
+            .and_hms_opt(0, 0, 0)
+            .and_then(|date| Local.from_local_datetime(&date).single())
+            .map(|date| date.with_timezone(&Utc))
+            .unwrap_or(now);
+        let daily_events = self
+            .events
+            .iter()
+            .filter(|event| event.ts >= daily_start)
+            .cloned()
+            .collect::<Vec<_>>();
         let mut by_agent = HashMap::new();
         let mut by_provider = HashMap::new();
         for event in &weekly_events {
@@ -260,13 +287,36 @@ impl ContextXEngine {
             .collect::<Vec<_>>();
         recent_events.reverse();
 
+        let session = window_stats(&session_events, self.session_start, Some(5 * 60));
+        let daily = window_stats(&daily_events, daily_start, Some(24 * 60));
+        let weekly = window_stats(
+            &weekly_events,
+            weekly_events.first().map(|event| event.ts).unwrap_or(now),
+            Some(7 * 24 * 60),
+        );
+        let daily_quota = std::env::var("CONTEXTX_DAILY_TOKEN_QUOTA")
+            .ok()
+            .and_then(|value| value.parse::<usize>().ok());
+        let usage = UsageSummary {
+            used_tokens: daily.used_tokens,
+            saved_tokens: daily.saved_tokens,
+            daily_quota_tokens: daily_quota,
+            daily_remaining_tokens: daily_quota
+                .map(|quota| quota.saturating_sub(daily.used_tokens)),
+            quota_source: if daily_quota.is_some() {
+                "CONTEXTX_DAILY_TOKEN_QUOTA".to_string()
+            } else {
+                "not configured; provider quota is estimated only".to_string()
+            },
+            next_daily_reset_at: daily_start + Duration::days(1),
+            session_reset_at: self.session_start + Duration::hours(5),
+        };
+
         StatsSnapshot {
-            session: window_stats(&session_events, self.session_start, Some(5 * 60)),
-            weekly: window_stats(
-                &weekly_events,
-                weekly_events.first().map(|event| event.ts).unwrap_or(now),
-                Some(7 * 24 * 60),
-            ),
+            session,
+            daily,
+            weekly,
+            usage,
             by_agent,
             by_provider,
             cache: CacheStats {
@@ -402,6 +452,10 @@ fn window_stats(
         }
     }
     stats.savings_pct = savings_pct(stats.original_tokens, stats.compressed_tokens);
+    stats.used_tokens = stats.compressed_tokens + stats.output_tokens;
+    stats.saved_tokens = stats
+        .original_tokens
+        .saturating_sub(stats.compressed_tokens);
     let elapsed_minutes = (Utc::now() - window_start).num_seconds().max(1) as f64 / 60.0;
     stats.burn_tokens_per_minute =
         (stats.compressed_tokens + stats.output_tokens) as f64 / elapsed_minutes;
@@ -731,6 +785,30 @@ mod tests {
             let retrieved = engine.retrieve(&response.ccr_keys);
             assert_eq!(retrieved.contents.len(), response.ccr_keys.len());
         }
+    }
+
+    #[test]
+    fn stats_report_used_and_saved_tokens() {
+        let mut engine = ContextXEngine::default();
+        let response = engine.compress(test_request(Value::String(
+            (0..80)
+                .map(|i| format!("usage summary line {i}"))
+                .collect::<Vec<_>>()
+                .join("\n"),
+        )));
+        engine.observe_output("test", "test", 42);
+
+        let stats = engine.stats();
+
+        assert_eq!(stats.session.used_tokens, response.compressed_tokens + 42);
+        assert_eq!(
+            stats.session.saved_tokens,
+            response
+                .original_tokens
+                .saturating_sub(response.compressed_tokens)
+        );
+        assert_eq!(stats.daily.used_tokens, stats.session.used_tokens);
+        assert_eq!(stats.usage.used_tokens, stats.daily.used_tokens);
     }
 
     fn test_request(content: Value) -> CompressRequest {

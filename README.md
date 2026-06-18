@@ -46,6 +46,7 @@ After setup, use normal commands:
 contextx daemon
 contextx tui
 contextx stats --watch
+contextx status
 ```
 
 ## Install Options
@@ -174,6 +175,14 @@ contextx daemon
 
 Restart Claude Desktop after install. The MCP server name is `contextx`.
 
+Inside Claude Desktop, ask the MCP tool for a compact status table:
+
+```text
+Use contextx_status and show my current ContextX usage.
+```
+
+Claude Desktop does not allow ContextX to permanently draw a custom bar under the message box in v1. The supported in-app view is the MCP tool result.
+
 ### Cursor
 
 One-command setup:
@@ -193,6 +202,8 @@ Run ContextX:
 ```bash
 contextx daemon
 ```
+
+Inside Cursor, use the `contextx_status` MCP tool for the compact usage table. For always-visible monitoring, keep `contextx tui` open in another terminal.
 
 ### VS Code / Cline / Continue
 
@@ -245,6 +256,14 @@ contextx daemon
 contextx wrap claude
 ```
 
+For live usage beside Claude Code, open another terminal:
+
+```bash
+contextx tui
+```
+
+Wrapper mode tracks the process, but exact token usage is only available when requests flow through ContextX MCP or proxy.
+
 ### Codex CLI
 
 Run Codex through the safe wrapper:
@@ -282,6 +301,12 @@ export OPENAI_BASE_URL=http://127.0.0.1:8787/v1
 ```bash
 contextx daemon
 contextx tui
+```
+
+Short non-refreshing table:
+
+```bash
+contextx status
 ```
 
 ### Stats
@@ -364,6 +389,15 @@ CCR originals:         12 retrievable
 
 ContextX can only measure and save traffic it can see through MCP, proxy, wrapper, or direct CLI calls. Exact Claude account quota depends on what Claude exposes to local tools.
 
+Set a local quota estimate if you want daily remaining tokens:
+
+```bash
+export CONTEXTX_DAILY_TOKEN_QUOTA=200000
+contextx status
+```
+
+Without this value, ContextX shows usage and savings but labels provider quota as estimated/not configured.
+
 ## Architecture
 
 ```text
@@ -414,6 +448,7 @@ ContextX can only measure and save traffic it can see through MCP, proxy, wrappe
 | `contextx_compress` | Compresses messages and returns token savings + CCR keys | Before sending large context to an LLM |
 | `contextx_retrieve` | Retrieves original content from RAM using CCR keys | When the model/client needs full details |
 | `contextx_stats` | Returns usage, savings, cache, agent, provider, and learning status | Dashboards, client status, debugging |
+| `contextx_status` | Shows a compact usage table inside MCP clients | Claude Desktop, Cursor, Cline, Continue |
 | `contextx_learn` | Returns observe-only tuning suggestions | Future auto-tuning workflow |
 
 ### CLI Commands
@@ -426,6 +461,7 @@ ContextX can only measure and save traffic it can see through MCP, proxy, wrappe
 | `contextx wrap <command>` | Run terminal AI tools through ContextX tracking |
 | `contextx tui` | Live terminal dashboard |
 | `contextx stats` | Print current memory-only stats |
+| `contextx status` | Print a compact usage table |
 | `contextx setup` | Install ContextX locally, update PATH, configure clients, and verify |
 | `contextx setup --all` | Setup all supported local clients |
 | `contextx setup --client <client>` | Setup one supported client |

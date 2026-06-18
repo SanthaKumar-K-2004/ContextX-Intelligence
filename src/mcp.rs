@@ -1,5 +1,6 @@
 use crate::cli::McpArgs;
-use crate::core::{CompressRequest, ContextXEngine};
+use crate::core::{CompressRequest, ContextXEngine, StatsSnapshot};
+use crate::tui;
 use anyhow::Result;
 use reqwest::Client;
 use serde_json::{Value, json};
@@ -119,6 +120,18 @@ async fn handle_tool_call(
             let engine = engine.lock().await;
             serde_json::to_value(engine.stats()).unwrap_or_else(|_| json!({}))
         }
+        "contextx_status" => {
+            if let Some(value) = daemon.get_json("/v1/contextx/stats").await {
+                let text = serde_json::from_value::<StatsSnapshot>(value.clone())
+                    .map(|snapshot| tui::compact_status(&snapshot))
+                    .unwrap_or_else(|_| serde_json::to_string_pretty(&value).unwrap_or_default());
+                return tool_text_result(id, text, value);
+            }
+            let engine = engine.lock().await;
+            let snapshot = engine.stats();
+            let value = serde_json::to_value(&snapshot).unwrap_or_else(|_| json!({}));
+            return tool_text_result(id, tui::compact_status(&snapshot), value);
+        }
         "contextx_learn" => {
             if let Some(value) = daemon.post_json("/v1/contextx/learn", &args).await {
                 return tool_result(id, value);
@@ -145,6 +158,17 @@ fn tool_result(id: Value, result: Value) -> Value {
         "result": {
             "content": [{"type": "text", "text": serde_json::to_string_pretty(&result).unwrap_or_default()}],
             "structuredContent": result
+        }
+    })
+}
+
+fn tool_text_result(id: Value, text: String, structured_content: Value) -> Value {
+    json!({
+        "jsonrpc": "2.0",
+        "id": id,
+        "result": {
+            "content": [{"type": "text", "text": text}],
+            "structuredContent": structured_content
         }
     })
 }
@@ -234,6 +258,11 @@ fn tools() -> Value {
         {
             "name": "contextx_stats",
             "description": "Return memory-only usage, compression, cache, and learning status.",
+            "inputSchema": {"type": "object", "properties": {}}
+        },
+        {
+            "name": "contextx_status",
+            "description": "Return a compact human-readable usage table for Claude Desktop, Cursor, and other MCP clients.",
             "inputSchema": {"type": "object", "properties": {}}
         },
         {

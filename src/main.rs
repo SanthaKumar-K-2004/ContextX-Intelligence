@@ -27,6 +27,7 @@ async fn main() -> Result<()> {
         Commands::Wrap(args) => wrap::run(args, engine).await,
         Commands::Tui(args) => tui::run(args, engine).await,
         Commands::Stats(args) => tui::print_stats(args, engine).await,
+        Commands::Status(args) => tui::print_status(args, engine).await,
         Commands::Doctor(args) => doctor::run(args).await,
         Commands::Setup(args) => setup::run(args).await,
         Commands::Install(args) => install::run(args).await,

@@ -1,16 +1,18 @@
 use crate::cli::WrapArgs;
-use crate::core::ContextXEngine;
 use anyhow::{Context, Result};
 use std::process::Stdio;
 use std::sync::Arc;
 use tokio::process::Command;
 use tokio::sync::Mutex;
 
-pub async fn run(args: WrapArgs, engine: Arc<Mutex<ContextXEngine>>) -> Result<()> {
+pub async fn run(args: WrapArgs, _engine: Arc<Mutex<crate::core::ContextXEngine>>) -> Result<()> {
     let started = std::time::Instant::now();
     eprintln!(
-        "contextx wrap: starting `{}` with memory-only tracking",
+        "contextx wrap: starting `{}` with process tracking",
         args.command
+    );
+    eprintln!(
+        "contextx wrap: token usage is only exact when traffic flows through ContextX MCP or proxy"
     );
     let status = Command::new(&args.command)
         .args(&args.args)
@@ -21,14 +23,6 @@ pub async fn run(args: WrapArgs, engine: Arc<Mutex<ContextXEngine>>) -> Result<(
         .await
         .with_context(|| format!("failed to run {}", args.command))?;
     let elapsed = started.elapsed().as_secs();
-    {
-        let mut engine = engine.lock().await;
-        engine.observe_output(
-            &format!("wrap:{}", args.command),
-            "local-cli",
-            elapsed as usize,
-        );
-    }
-    eprintln!("contextx wrap: command exited with {status}");
+    eprintln!("contextx wrap: command exited with {status} after {elapsed}s");
     Ok(())
 }

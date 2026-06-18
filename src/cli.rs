@@ -22,6 +22,8 @@ pub enum Commands {
     Tui(TuiArgs),
     /// Print current memory-only stats.
     Stats(StatsArgs),
+    /// Print a compact human-readable usage table.
+    Status(StatsArgs),
     /// Check local setup and recommendations.
     Doctor(DoctorArgs),
     /// One-command setup: install ContextX locally, update PATH, and configure clients.
