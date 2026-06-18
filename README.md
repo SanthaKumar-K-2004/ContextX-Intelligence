@@ -14,6 +14,20 @@ No Docker. No telemetry. No cloud server. Memory-only by default.
 
 ## Quick Install From Source
 
+Best current install path:
+
+```bash
+cargo install --git https://github.com/SanthaKumar-K-2004/ContextX-Intelligence.git
+```
+
+Then verify:
+
+```bash
+contextx doctor
+```
+
+Manual source build:
+
 ```bash
 git clone https://github.com/SanthaKumar-K-2004/ContextX-Intelligence.git
 cd ContextX-Intelligence
@@ -40,6 +54,21 @@ Run the built binary:
 ./target/release/contextx doctor
 ```
 
+## Recommended Distribution Plan
+
+ContextX is a Rust system tool, so the best packaging order is:
+
+| Stage | Package Channel | User Command | Why |
+| --- | --- | --- | --- |
+| Now | GitHub + Cargo | `cargo install --git https://github.com/SanthaKumar-K-2004/ContextX-Intelligence.git` | Fastest real install for Rust users |
+| Next | GitHub Releases | `curl -fsSL .../install.sh \| sh` | Best for normal users, no Rust required |
+| Later | Homebrew | `brew install contextx` | Best macOS/Linux developer install |
+| Later | npm wrapper | `npm install -g contextx-intelligence` | Good for JS/Node users; wrapper downloads the Rust binary |
+| Later | PyPI wrapper | `pipx install contextx-intelligence` | Good for Python users; wrapper downloads the Rust binary |
+| Later | Windows Scoop | `scoop install contextx` | Clean Windows install |
+
+Recommended product strategy: keep the core as one Rust binary and use npm/PyPI only as installer wrappers. That keeps ContextX fast, low-RAM, and easy to ship.
+
 ## One-Minute Setup
 
 Preview setup first:
@@ -64,6 +93,84 @@ Open the dashboard in another terminal:
 
 ```bash
 contextx tui
+```
+
+## Command Cheat Sheet By Tool
+
+### Claude Desktop
+
+```bash
+contextx install --client claude-desktop
+contextx verify-client --client claude-desktop
+contextx daemon
+```
+
+Restart Claude Desktop after install.
+
+### Cursor
+
+```bash
+contextx install --client cursor
+contextx verify-client --client cursor
+contextx daemon
+```
+
+### VS Code / Cline / Continue
+
+```bash
+contextx install --client vscode
+contextx verify-client --client vscode
+contextx daemon
+```
+
+### Zed
+
+```bash
+contextx install --client zed
+contextx verify-client --client zed
+contextx daemon
+```
+
+### Claude Code
+
+```bash
+contextx daemon
+contextx wrap claude
+```
+
+### Codex CLI
+
+```bash
+contextx daemon
+contextx wrap codex
+```
+
+### Aider
+
+```bash
+contextx daemon
+contextx wrap aider
+```
+
+### OpenAI SDK / LangChain / Vercel AI SDK
+
+```bash
+contextx proxy --port 8787
+export OPENAI_BASE_URL=http://127.0.0.1:8787/v1
+```
+
+### Dashboard
+
+```bash
+contextx daemon
+contextx tui
+```
+
+### Stats
+
+```bash
+contextx stats
+contextx stats --watch
 ```
 
 ## What ContextX Shows
