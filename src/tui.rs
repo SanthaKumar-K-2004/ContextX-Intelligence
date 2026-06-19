@@ -12,7 +12,7 @@ pub async fn run(args: TuiArgs, engine: Arc<Mutex<ContextXEngine>>) -> Result<()
     let client = Client::new();
     loop {
         let snapshot = load_snapshot(&client, &args.daemon_url, args.local, engine.clone()).await;
-        print!("\x1B[2J\x1B[H");
+        print!("\x1B[?25l\x1B[2J\x1B[H");
         render(&snapshot);
         io::stdout().flush()?;
         sleep(Duration::from_secs(args.refresh_seconds)).await;
@@ -35,7 +35,13 @@ pub async fn print_status(args: StatsArgs, engine: Arc<Mutex<ContextXEngine>>) -
     let client = Client::new();
     loop {
         let snapshot = load_snapshot(&client, &args.daemon_url, args.local, engine.clone()).await;
-        println!("{}", compact_status(&snapshot));
+        if args.watch {
+            print!("\x1B[?25l\x1B[2J\x1B[H");
+            print!("{}", compact_status(&snapshot));
+            io::stdout().flush()?;
+        } else {
+            println!("{}", compact_status(&snapshot));
+        }
         if !args.watch {
             return Ok(());
         }
@@ -65,103 +71,118 @@ fn render(snapshot: &StatsSnapshot) {
 }
 
 pub fn compact_status(snapshot: &StatsSnapshot) -> String {
-    let mut output = String::new();
-    output.push_str("ContextX Intelligence | Santhakumar K - Alpha X Solutions\n");
-    output.push_str("Privacy: memory-only | Telemetry: off | CCR originals: RAM only\n\n");
-    output.push_str("+----------+------+----------+------------+--------+--------+----------+\n");
-    output.push_str("| Window   | Req  | Used     | Saved      | Save % | Burn/m | Reset    |\n");
-    output.push_str("+----------+------+----------+------------+--------+--------+----------+\n");
-    output.push_str(&window_row("Session", &snapshot.session, "5h est"));
-    output.push_str(&window_row("Daily", &snapshot.daily, "midnight"));
-    output.push_str(&window_row("Weekly", &snapshot.weekly, "7d roll"));
-    output.push_str("+----------+------+----------+------------+--------+--------+----------+\n\n");
-    output.push_str(&format!(
-        "Daily quota: {} | remaining: {} | next reset: {}\n",
+    format!(
+        "ContextX usage\n\
+Daily: used {} | quota {} | remaining {} | reset {}\n\
+Session: {} req | used {} | saved {} | {:.1} tok/min\n\
+Weekly: {} req / {} used / {} saved / {:.1}% saved\n\
+CCR: {}/{} items / {} hits / {} misses | memory-only, telemetry off\n{}",
+        tokens(snapshot.usage.used_tokens),
         quota(snapshot.usage.daily_quota_tokens),
         quota(snapshot.usage.daily_remaining_tokens),
         snapshot
             .usage
             .next_daily_reset_at
             .with_timezone(&Local)
-            .format("%Y-%m-%d %H:%M local")
-    ));
-    output.push_str(&format!(
-        "Session reset estimate: {} | quota source: {}\n",
-        snapshot
-            .usage
-            .session_reset_at
-            .with_timezone(&Local)
             .format("%H:%M local"),
-        snapshot.usage.quota_source
-    ));
-    output.push_str(&format!(
-        "CCR cache: {}/{} | hits {} | misses {}\n\n",
+        snapshot.session.requests,
+        tokens(snapshot.session.used_tokens),
+        tokens(snapshot.session.saved_tokens),
+        snapshot.session.burn_tokens_per_minute,
+        snapshot.weekly.requests,
+        tokens(snapshot.weekly.used_tokens),
+        tokens(snapshot.weekly.saved_tokens),
+        snapshot.weekly.savings_pct,
         snapshot.cache.ccr_items,
         snapshot.cache.ccr_limit,
         snapshot.cache.cache_hits,
-        snapshot.cache.cache_misses
-    ));
-
-    output.push_str("Top agents\n");
-    output.push_str("+--------------------+------+----------+----------+----------+\n");
-    output.push_str("| Agent              | Req  | Original | Sent     | Output   |\n");
-    output.push_str("+--------------------+------+----------+----------+----------+\n");
-    let mut agents = snapshot.by_agent.iter().collect::<Vec<_>>();
-    agents
-        .sort_by_key(|(_, stats)| std::cmp::Reverse(stats.compressed_tokens + stats.output_tokens));
-    for (agent, stats) in agents.into_iter().take(5) {
-        output.push_str(&format!(
-            "| {:<18.18} | {:>4} | {:>8} | {:>8} | {:>8} |\n",
-            agent,
-            stats.requests,
-            stats.original_tokens,
-            stats.compressed_tokens,
-            stats.output_tokens
-        ));
-    }
-    if snapshot.by_agent.is_empty() {
-        output.push_str("| No activity yet. Send traffic through MCP, proxy, or wrap.   |\n");
-    }
-    output.push_str("+--------------------+------+----------+----------+----------+\n\n");
-
-    output.push_str("Recent events\n");
-    output.push_str("+----------+--------------+--------------+--------+----------+\n");
-    output.push_str("| Time     | Agent        | Kind         | Save % | Hash     |\n");
-    output.push_str("+----------+--------------+--------------+--------+----------+\n");
-    for event in snapshot.recent_events.iter().rev().take(6) {
-        output.push_str(&format!(
-            "| {} | {:<12.12} | {:<12.12} | {:>6.1} | {:<8.8} |\n",
-            event.ts.format("%H:%M:%S"),
-            event.agent,
-            event.kind,
-            event.savings_pct,
-            event.request_hash
-        ));
-    }
-    if snapshot.recent_events.is_empty() {
-        output.push_str("| No events yet.                                              |\n");
-    }
-    output.push_str("+----------+--------------+--------------+--------+----------+\n");
-    output
-}
-
-fn window_row(label: &str, stats: &crate::core::WindowStats, reset: &str) -> String {
-    format!(
-        "| {:<8} | {:>4} | {:>8} | {:>10} | {:>6.1} | {:>6.1} | {:<8} |\n",
-        label,
-        stats.requests,
-        stats.used_tokens,
-        stats.saved_tokens,
-        stats.savings_pct,
-        stats.burn_tokens_per_minute,
-        reset
+        snapshot.cache.cache_misses,
+        activity_line(snapshot)
     )
 }
 
+pub fn desktop_status(snapshot: &StatsSnapshot) -> String {
+    format!(
+        "ContextX usage\nDaily: used {} | quota {} | remaining {}\nSaved: {} | req {} | CCR {}/{}\nReset: {} | {}",
+        tokens(snapshot.usage.used_tokens),
+        quota(snapshot.usage.daily_quota_tokens),
+        quota(snapshot.usage.daily_remaining_tokens),
+        tokens(snapshot.usage.saved_tokens),
+        snapshot.daily.requests,
+        snapshot.cache.ccr_items,
+        snapshot.cache.ccr_limit,
+        snapshot
+            .usage
+            .next_daily_reset_at
+            .with_timezone(&Local)
+            .format("%H:%M local"),
+        short_activity(snapshot)
+    )
+}
+
+fn activity_line(snapshot: &StatsSnapshot) -> String {
+    if let Some(event) = snapshot.recent_events.last() {
+        return format!(
+            "Last: {} {} saved {:.1}% at {}\n",
+            event.agent,
+            event.kind,
+            event.savings_pct,
+            event.ts.with_timezone(&Local).format("%H:%M:%S"),
+        );
+    }
+    "Last: no activity yet. Send traffic through MCP, proxy, or wrap.\n".to_string()
+}
+
+fn short_activity(snapshot: &StatsSnapshot) -> String {
+    snapshot
+        .recent_events
+        .last()
+        .map(|event| format!("last {} saved {:.1}%", event.agent, event.savings_pct))
+        .unwrap_or_else(|| "no activity yet".to_string())
+}
+
+fn tokens(value: usize) -> String {
+    format!("{} tok", short_number(value))
+}
+
 fn quota(value: Option<usize>) -> String {
-    value
-        .map(|tokens| tokens.to_string())
-        .unwrap_or_else(|| "not set".to_string())
+    value.map(tokens).unwrap_or_else(|| "not set".to_string())
+}
+
+fn short_number(value: usize) -> String {
+    if value >= 1_000_000 {
+        format!("{:.1}M", value as f64 / 1_000_000.0)
+    } else if value >= 10_000 {
+        format!("{:.1}K", value as f64 / 1_000.0)
+    } else {
+        value.to_string()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn desktop_status_stays_small() {
+        let snapshot = ContextXEngine::default().stats();
+        let status = desktop_status(&snapshot);
+
+        assert!(status.lines().count() <= 4);
+        assert!(status.contains("Daily:"));
+        assert!(status.contains("remaining"));
+        assert!(status.contains("CCR"));
+    }
+
+    #[test]
+    fn compact_status_has_no_large_agent_or_event_tables() {
+        let snapshot = ContextXEngine::default().stats();
+        let status = compact_status(&snapshot);
+
+        assert!(!status.contains("Top agents"));
+        assert!(!status.contains("Recent events"));
+        assert!(status.lines().count() <= 6);
+    }
 }
 
 #[allow(dead_code)]

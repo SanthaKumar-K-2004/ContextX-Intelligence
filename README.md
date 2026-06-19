@@ -175,13 +175,13 @@ contextx daemon
 
 Restart Claude Desktop after install. The MCP server name is `contextx`.
 
-Inside Claude Desktop, ask the MCP tool for a compact status table:
+Inside Claude Desktop, ask the MCP tool for a tiny usage card:
 
 ```text
-Use contextx_status and show my current ContextX usage.
+Use contextx_status and show my current ContextX usage briefly.
 ```
 
-Claude Desktop does not allow ContextX to permanently draw a custom bar under the message box in v1. The supported in-app view is the MCP tool result.
+Claude Desktop does not allow ContextX to permanently draw a custom bar under the message box in v1. The supported in-app view is a short MCP tool result. Use `contextx_status` for the small card; use `contextx_stats` only when you want full JSON/debug details.
 
 ### Cursor
 
@@ -203,7 +203,7 @@ Run ContextX:
 contextx daemon
 ```
 
-Inside Cursor, use the `contextx_status` MCP tool for the compact usage table. For always-visible monitoring, keep `contextx tui` open in another terminal.
+Inside Cursor, use the `contextx_status` MCP tool for the short usage card. For always-visible monitoring, keep `contextx tui` open in another terminal.
 
 ### VS Code / Cline / Continue
 
@@ -447,8 +447,8 @@ Without this value, ContextX shows usage and savings but labels provider quota a
 | --- | --- | --- |
 | `contextx_compress` | Compresses messages and returns token savings + CCR keys | Before sending large context to an LLM |
 | `contextx_retrieve` | Retrieves original content from RAM using CCR keys | When the model/client needs full details |
-| `contextx_stats` | Returns usage, savings, cache, agent, provider, and learning status | Dashboards, client status, debugging |
-| `contextx_status` | Shows a compact usage table inside MCP clients | Claude Desktop, Cursor, Cline, Continue |
+| `contextx_stats` | Returns full JSON usage, savings, cache, agent, provider, and learning status | Debugging and integrations |
+| `contextx_status` | Shows a tiny usage card inside MCP clients | Claude Desktop, Cursor, Cline, Continue |
 | `contextx_learn` | Returns observe-only tuning suggestions | Future auto-tuning workflow |
 
 ### CLI Commands
@@ -460,8 +460,8 @@ Without this value, ContextX shows usage and savings but labels provider quota a
 | `contextx proxy` | Local OpenAI/Anthropic-compatible proxy |
 | `contextx wrap <command>` | Run terminal AI tools through ContextX tracking |
 | `contextx tui` | Live terminal dashboard |
-| `contextx stats` | Print current memory-only stats |
-| `contextx status` | Print a compact usage table |
+| `contextx stats` | Print full memory-only JSON stats |
+| `contextx status` | Print a compact terminal usage table |
 | `contextx setup` | Install ContextX locally, update PATH, configure clients, and verify |
 | `contextx setup --all` | Setup all supported local clients |
 | `contextx setup --client <client>` | Setup one supported client |

@@ -122,15 +122,18 @@ async fn handle_tool_call(
         }
         "contextx_status" => {
             if let Some(value) = daemon.get_json("/v1/contextx/stats").await {
-                let text = serde_json::from_value::<StatsSnapshot>(value.clone())
-                    .map(|snapshot| tui::compact_status(&snapshot))
+                let parsed = serde_json::from_value::<StatsSnapshot>(value.clone());
+                let text = parsed
+                    .as_ref()
+                    .map(tui::desktop_status)
                     .unwrap_or_else(|_| serde_json::to_string_pretty(&value).unwrap_or_default());
-                return tool_text_result(id, text, value);
+                let structured = parsed.as_ref().map(status_summary_json).unwrap_or(value);
+                return tool_text_result(id, text, structured);
             }
             let engine = engine.lock().await;
             let snapshot = engine.stats();
-            let value = serde_json::to_value(&snapshot).unwrap_or_else(|_| json!({}));
-            return tool_text_result(id, tui::compact_status(&snapshot), value);
+            let value = status_summary_json(&snapshot);
+            return tool_text_result(id, tui::desktop_status(&snapshot), value);
         }
         "contextx_learn" => {
             if let Some(value) = daemon.post_json("/v1/contextx/learn", &args).await {
@@ -170,6 +173,37 @@ fn tool_text_result(id: Value, text: String, structured_content: Value) -> Value
             "content": [{"type": "text", "text": text}],
             "structuredContent": structured_content
         }
+    })
+}
+
+fn status_summary_json(snapshot: &StatsSnapshot) -> Value {
+    json!({
+        "daily": {
+            "used_tokens": snapshot.usage.used_tokens,
+            "quota_tokens": snapshot.usage.daily_quota_tokens,
+            "remaining_tokens": snapshot.usage.daily_remaining_tokens,
+            "saved_tokens": snapshot.usage.saved_tokens,
+            "requests": snapshot.daily.requests,
+            "reset_at": snapshot.usage.next_daily_reset_at,
+        },
+        "session": {
+            "used_tokens": snapshot.session.used_tokens,
+            "saved_tokens": snapshot.session.saved_tokens,
+            "burn_tokens_per_minute": snapshot.session.burn_tokens_per_minute,
+            "reset_at": snapshot.usage.session_reset_at,
+        },
+        "cache": {
+            "ccr_items": snapshot.cache.ccr_items,
+            "ccr_limit": snapshot.cache.ccr_limit,
+        },
+        "last_event": snapshot.recent_events.last().map(|event| json!({
+            "agent": event.agent,
+            "kind": event.kind,
+            "savings_pct": event.savings_pct,
+            "time": event.ts,
+        })),
+        "privacy": "memory-only",
+        "telemetry": "off"
     })
 }
 
@@ -262,7 +296,7 @@ fn tools() -> Value {
         },
         {
             "name": "contextx_status",
-            "description": "Return a compact human-readable usage table for Claude Desktop, Cursor, and other MCP clients.",
+            "description": "Return a tiny human-readable usage card for Claude Desktop, Cursor, and other MCP clients.",
             "inputSchema": {"type": "object", "properties": {}}
         },
         {
