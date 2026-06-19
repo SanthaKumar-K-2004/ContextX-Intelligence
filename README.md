@@ -2,19 +2,59 @@
 
 **By Santhakumar K • Alpha X Solutions**
 
+[![Rust](https://img.shields.io/badge/Rust-single_binary-f97316?style=for-the-badge&logo=rust&logoColor=white)](https://www.rust-lang.org/)
+[![MCP](https://img.shields.io/badge/MCP-Claude_Desktop_Ready-2563eb?style=for-the-badge)](https://modelcontextprotocol.io/)
+[![Privacy](https://img.shields.io/badge/Privacy-local_first-16a34a?style=for-the-badge)](#privacy-and-safety)
+[![No Docker](https://img.shields.io/badge/Docker-not_required-0f172a?style=for-the-badge)](#fast-setup)
+
 Local-first **Claude usage monitor + context token saver** for AI tools.
 
 ContextX is a single Rust CLI binary that helps AI users see usage and save tokens at the same time. It combines Claude Usage Monitor-style live usage visibility with reversible context compression, MCP tools, localhost proxy support, CLI wrapping, and safe auto-configuration.
 
-```text
-Usage you can see  +  Tokens you can save  =  ContextX Intelligence
-```
+![ContextX preview](docs/contextx-preview.svg)
 
 No Docker. No telemetry. No cloud server. Memory-only by default.
 
+## What You Get
+
+| Need | ContextX gives you |
+| --- | --- |
+| Claude Desktop usage view | Tiny `contextx_status` MCP card inside chat |
+| Terminal dashboard | `contextx status` or live `contextx tui` |
+| Token saver | Reversible compression with CCR retrieval keys |
+| Easy setup | `contextx setup --all` configures supported tools |
+| Privacy | Localhost-only, no telemetry, no prompt database |
+
+```mermaid
+flowchart LR
+    A[Claude Desktop / Cursor / SDK / CLI] --> B[ContextX daemon]
+    B --> C[Usage card]
+    B --> D[Compression engine]
+    D --> E[CCR keys in RAM]
+    E --> F[Retrieve original content]
+```
+
 ## Fast Setup
 
-Fresh setup from source:
+### Already Installed Locally
+
+You already ran setup successfully. After pulling new changes, refresh the installed binary with:
+
+```bash
+cd ~/Desktop/Projects/heatroom
+git pull
+cargo run -- setup --all
+contextx daemon
+```
+
+Open another terminal:
+
+```bash
+contextx status
+contextx tui
+```
+
+### Fresh Setup From Source
 
 ```bash
 git clone https://github.com/SanthaKumar-K-2004/ContextX-Intelligence.git
@@ -23,7 +63,7 @@ cargo run -- setup --all
 contextx daemon
 ```
 
-That one setup command installs the `contextx` binary into `~/.local/bin`, adds it to PATH when needed, backs up existing config files, and configures supported MCP clients.
+That one setup command installs `contextx` into `~/.local/bin`, adds it to PATH when needed, backs up existing config files, and configures supported MCP clients.
 
 Setup one tool only:
 
@@ -44,10 +84,28 @@ After setup, use normal commands:
 
 ```bash
 contextx daemon
-contextx tui
-contextx stats --watch
 contextx status
+contextx tui
 ```
+
+## UI Preview
+
+Terminal:
+
+```text
+ContextX usage
+Daily: used 1070 tok | quota not set | remaining not set
+Saved: 0 tok | req 1 | CCR 0/512
+Reset: 00:00 local | last claude-desktop saved 0.0%
+```
+
+Claude Desktop:
+
+```text
+Use contextx_status and show my current ContextX usage briefly.
+```
+
+Claude Desktop can show the usage card as an MCP tool result. It cannot permanently draw a custom bar under the message box through MCP alone.
 
 ## Install Options
 
@@ -151,7 +209,29 @@ Then connect tools in one of three ways:
 | Proxy | SDK apps, LangChain, Vercel AI SDK, custom apps | `contextx proxy --port 8787` |
 | Wrapper | Claude Code, Codex CLI, Aider | `contextx wrap <command>` |
 
+```mermaid
+sequenceDiagram
+    participant User
+    participant Tool as AI Tool
+    participant CX as ContextX
+    participant LLM as Provider
+    User->>Tool: prompt / code / docs
+    Tool->>CX: MCP tool or proxy request
+    CX->>CX: estimate tokens + compress if useful
+    CX->>LLM: smaller context when safe
+    CX-->>Tool: status, CCR keys, usage stats
+```
+
 ## Setup By Tool
+
+| Tool | One-command setup | Where usage appears | Best command after setup |
+| --- | --- | --- | --- |
+| Claude Desktop | `contextx setup --client claude-desktop` | Inside chat via `contextx_status` | `contextx daemon` |
+| Cursor | `contextx setup --client cursor` | MCP tool result + terminal | `contextx daemon` |
+| VS Code / Cline / Continue | `contextx setup --client vscode` | MCP tool result + terminal | `contextx daemon` |
+| Zed | `contextx setup --client zed` | MCP tool result + terminal | `contextx daemon` |
+| Claude Code | `contextx wrap claude` | Terminal beside Claude Code | `contextx tui` |
+| SDK apps | proxy env var | API stats + terminal | `contextx proxy --port 8787` |
 
 ### Claude Desktop
 
@@ -182,6 +262,15 @@ Use contextx_status and show my current ContextX usage briefly.
 ```
 
 Claude Desktop does not allow ContextX to permanently draw a custom bar under the message box in v1. The supported in-app view is a short MCP tool result. Use `contextx_status` for the small card; use `contextx_stats` only when you want full JSON/debug details.
+
+Expected card:
+
+```text
+ContextX usage
+Daily: used 1070 tok | quota not set | remaining not set
+Saved: 0 tok | req 1 | CCR 0/512
+Reset: 00:00 local | last claude-desktop saved 0.0%
+```
 
 ### Cursor
 
@@ -296,6 +385,8 @@ Point your app to ContextX:
 export OPENAI_BASE_URL=http://127.0.0.1:8787/v1
 ```
 
+Then your OpenAI-compatible app sends requests through ContextX first. ContextX compresses only when it can reduce tokens without adding overhead.
+
 ### Dashboard
 
 ```bash
@@ -315,6 +406,8 @@ contextx status
 contextx stats
 contextx stats --watch
 ```
+
+Use `contextx status` for humans. Use `contextx stats` for full JSON automation/debugging.
 
 ## Verify Everything Works
 
@@ -372,27 +465,34 @@ Expected response includes:
 | Deep Claude Code request interception | Future |
 | npm/PyPI/Homebrew packages | Future wrappers |
 
+```mermaid
+pie title ContextX v0.1 Feature Coverage
+    "Working" : 13
+    "Provider-dependent" : 1
+    "Future" : 2
+```
+
 ## What ContextX Shows
 
 ```text
-Claude / Provider Usage
-Input sent:        18,500 tokens
-Output received:   4,200 tokens
-Burn rate:           820 tokens/min
-
-ContextX Saver
-Original input:   120,000 tokens
-Compressed sent:   18,500 tokens
-Saved:              84.6%
-CCR originals:         12 retrievable
+ContextX usage
+Daily: used 18.5K tok | quota 200K tok | remaining 181.5K tok
+Saved: 84.6K tok | req 12 | CCR 12/512
+Reset: 00:00 local | last claude-desktop saved 72.8%
 ```
 
 ContextX can only measure and save traffic it can see through MCP, proxy, wrapper, or direct CLI calls. Exact Claude account quota depends on what Claude exposes to local tools.
 
-Set a local quota estimate if you want daily remaining tokens:
+Set a local quota estimate if you want daily remaining tokens. Put this in your shell before starting the daemon:
 
 ```bash
 export CONTEXTX_DAILY_TOKEN_QUOTA=200000
+contextx daemon
+```
+
+Then check:
+
+```bash
 contextx status
 ```
 
